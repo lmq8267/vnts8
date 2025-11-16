@@ -666,7 +666,6 @@ pub struct RegisterClientResponse {
 pub async fn generate_ip(
     cache: &AppCache,
     register_request: RegisterClientRequest,
-    password: Option<String>,
 ) -> anyhow::Result<RegisterClientResponse> {
     let gateway: u32 = register_request.gateway.into();
     let netmask: u32 = register_request.netmask.into();
@@ -677,25 +676,14 @@ pub async fn generate_ip(
     let group_id = register_request.group_id;
     let v = cache
         .virtual_network
-        .optionally_get_with(group_id.clone(), || {  
-            // 创建新的 NetworkInfo  
-            let mut network_info = NetworkInfo::new(network, netmask, gateway);  
-              
-            // 如果提供了密码,进行哈希处理  
-            if let Some(pwd) = password {  
-                use sha2::Digest;  
-                let mut hasher = sha2::Sha256::new();  
-                hasher.update(pwd.as_bytes());  
-                hasher.update(group_id.as_bytes()); // 使用组网ID作为盐值  
-                let password_hash = format!("{:x}", hasher.finalize());  
-                network_info.password = Some(password_hash);  
-            }  
-              
-            (  
-                Duration::from_secs(7 * 24 * 3600),  
-                Arc::new(parking_lot::const_rwlock(network_info)),  
-            )  
-        })  
+        .optionally_get_with(group_id, || {
+            (
+                Duration::from_secs(7 * 24 * 3600),
+                Arc::new(parking_lot::const_rwlock(NetworkInfo::new(
+                    network, netmask, gateway,
+                ))),
+            )
+        })
         .await;
     // 可分配的ip段
     let ip_range = network + 1..gateway | (!netmask);
