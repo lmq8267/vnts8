@@ -97,6 +97,9 @@ jobs:
               mips-unknown-linux-musl)
                 MUSL_URI=mips-linux-musl-cross
                 ;;
+              x86_64-unknown-linux-musl)
+                MUSL_URI=x86_64-linux-musl-cross
+                ;;
             esac
               echo "MUSL_URI=${MUSL_URI}" >> $GITHUB_ENV
               mkdir -p /opt/musl_gcc 
@@ -113,6 +116,7 @@ jobs:
             sudo timedatectl set-timezone "Asia/Shanghai"
             cat >>~/.cargo/config <<EOF
             [target.x86_64-unknown-linux-musl]
+            linker = "x86_64-linux-musl-gcc"
             rustflags = ["-C", "target-feature=+crt-static","-C", "strip=symbols", "--remap-path-prefix=/=."]
             [target.aarch64-unknown-linux-musl]
             linker = "aarch64-linux-musl-gcc"
@@ -150,7 +154,7 @@ jobs:
         if: ${{ matrix.TARGET == 'x86_64-unknown-freebsd' }}
         run: |
           sudo apt-get update
-          sudo apt-get install -y qemu qemu-user-static binfmt-support build-essential
+          sudo apt-get install -y qemu-user qemu-user-static binfmt-support build-essential
           cargo install cross --git https://github.com/cross-rs/cross
           sed -i 's/const CLOCK_ID: ClockId = ClockId::CLOCK_BOOTTIME;/const CLOCK_ID: ClockId = ClockId::CLOCK_MONOTONIC;/g' ./lib/boringtun/src/sleepyinstant/unix.rs
           cross build --target $TARGET --release --features $FEATURES
