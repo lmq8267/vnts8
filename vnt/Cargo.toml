@@ -1,0 +1,13 @@
+[workspace]
+members = ["vnt", "common", "vnt-cli", "vn-link", "vn-link-cli"]
+
+[profile.release]
+opt-level = 'z'
+debug = 0
+debug-assertions = false
+strip = "debuginfo"
+lto = true
+panic = 'abort'
+incremental = false
+codegen-units = 1
+rpath = false
