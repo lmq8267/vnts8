@@ -2,6 +2,7 @@ use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4, ToSocketAddrs};
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
+use std::path::PathBuf; 
 
 use anyhow::{anyhow, Context};
 use base64::engine::general_purpose;
@@ -71,24 +72,34 @@ impl VntsWebService {
             .collect();
         GroupList { group_list }
     }
-    pub fn remove_client(&self, req: RemoveClientReq) {
-        if let Some(ip) = req.virtual_ip {
-            if let Some(network_info) = self.cache.virtual_network.get(&req.group_id) {
-                if let Some(client_info) = network_info.write().clients.remove(&ip.into()) {
-                    if let Some(key) = client_info.wireguard {
-                        self.cache.wg_group_map.remove(&key);
-                    }
-                }
-            }
-        } else {
-            if let Some(network_info) = self.cache.virtual_network.remove(&req.group_id) {
-                for (_, client_info) in network_info.write().clients.drain() {
-                    if let Some(key) = client_info.wireguard {
-                        self.cache.wg_group_map.remove(&key);
-                    }
-                }
-            }
-        }
+    pub fn remove_client(&self, req: RemoveClientReq) {  
+        if let Some(ip) = req.virtual_ip {  
+            if let Some(network_info) = self.cache.virtual_network.get(&req.group_id) {  
+                if let Some(client_info) = network_info.write().clients.remove(&ip.into()) {  
+                    if let Some(key) = client_info.wireguard {  
+                        self.cache.wg_group_map.remove(&key);  
+                        // 删除后保存配置  
+                        let wg_config_path = PathBuf::from("wg_configs.json");  
+                        if let Err(e) = self.cache.save_wg_configs(&wg_config_path) {  
+                            log::warn!("保存WireGuard配置失败: {:?}", e);  
+                        }  
+                    }  
+                }  
+            }  
+        } else {  
+            if let Some(network_info) = self.cache.virtual_network.remove(&req.group_id) {  
+                for (_, client_info) in network_info.write().clients.drain() {  
+                    if let Some(key) = client_info.wireguard {  
+                        self.cache.wg_group_map.remove(&key);  
+                    }  
+                }  
+                // 删除后保存配置  
+                let wg_config_path = PathBuf::from("wg_configs.json");  
+                if let Err(e) = self.cache.save_wg_configs(&wg_config_path) {  
+                    log::warn!("保存WireGuard配置失败: {:?}", e);  
+                }  
+            }  
+        }  
     }
     pub fn gen_wg_private_key(&self) -> String {
         let mut bytes = [0u8; 32];
@@ -167,6 +178,11 @@ impl VntsWebService {
             public_key,
         };
         cache.wg_group_map.insert(public_key, wireguard_config);
+        // 保存配置到文件  
+        let wg_config_path = PathBuf::from("wg_configs.json");  
+        if let Err(e) = cache.save_wg_configs(&wg_config_path) {  
+            log::warn!("保存WireGuard配置失败: {:?}", e);  
+        }
         let config = WgConfig {
             vnts_endpoint: wg_data.config.vnts_endpoint,
             vnts_public_key: general_purpose::STANDARD.encode(&self.config.wg_public_key),
