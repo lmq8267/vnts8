@@ -443,12 +443,11 @@ impl ServerPacketHandler {
         };
         let register_response = generate_ip(&self.cache, register_client_request).await?;
         let virtual_ip: Ipv4Addr = register_response.virtual_ip; 
-        // 计算客户端所在网段的网关 IP（x.x.x.1）
-        let virtual_ip_u32: u32 = virtual_ip.into(); 
-        let client_gateway_u32 = (virtual_ip_u32 & 0xFFFFFF00) | 1; // 保留前三个字节，最后一个字节设为 1
-        let client_gateway = Ipv4Addr::from(client_gateway_u32);
+        // 计算客户端所在网段的网关 IP（x.x.x.1）  
+        let virtual_ip_u32: u32 = virtual_ip;  
+        let client_gateway = (virtual_ip_u32 & 0xFFFFFF00) | 1; // 保留前三个字节，最后一个字节设为 1
         
-        response.virtual_gateway = client_gateway.into(); // 使用客户端网段的 .1 作为网关
+        response.virtual_gateway = client_gateway; // 使用客户端网段的 .1 作为网关
         response.virtual_netmask = netmask.into();
         response.virtual_ip = virtual_ip;
         response.epoch = register_response.epoch as u32;
