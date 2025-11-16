@@ -318,37 +318,39 @@ impl ServerPacketHandler {
                 let source_subnet = source_u32 & 0xFFFFFF00;  
                 let dest_subnet = dest_u32 & 0xFFFFFF00;  
                   
-                if source_subnet == dest_subnet {    
-                    println!("检测到客户端网段网关心跳包: 源={}, 目标={}", source, destination);    
-                    // 响应 Pong 包    
-                    let client_gateway = (source_u32 & 0xFFFFFF00) | 1;    
-                    println!("准备响应 Pong: 网关={}", Ipv4Addr::from(client_gateway));  
-                      
-                    // 创建 Pong 响应包  
-                    let vec = vec![0u8; 12 + 4 + ENCRYPTION_RESERVED];  
-                    let mut packet = match NetPacket::new_encrypt(vec) {  
-                        Ok(p) => p,  
-                        Err(e) => return Ok(Err(e.into())),  
-                    };  
-                    packet.set_protocol(Protocol::Control);  
-                    packet.set_transport_protocol(control_packet::Protocol::Pong.into());  
-                    if let Err(e) = packet.set_payload(net_packet.payload()) {  
-                        return Ok(Err(e.into()));  
-                    }  
-                    let mut pong_packet = match control_packet::PongPacket::new(packet.payload_mut()) {  
-                        Ok(p) => p,  
-                        Err(e) => return Ok(Err(e.into())),  
-                    };  
-                    pong_packet.set_epoch(0);  
-                      
-                    packet.set_source(client_gateway.into());  
-                    packet.set_destination(source);  
-                    packet.set_default_version();  
-                    packet.first_set_ttl(MAX_TTL);  
-                    packet.set_gateway_flag(true);  
-                      
-                    return Ok(Ok(Some(packet)));  
-                }  
+                if source_subnet == dest_subnet {  
+    println!("检测到客户端网段网关心跳包: 源={}, 目标={}", source, destination);  
+    let client_gateway = (source_u32 & 0xFFFFFF00) | 1;  
+    println!("准备响应 Pong: 网关={}", Ipv4Addr::from(client_gateway));  
+      
+    let vec = vec![0u8; 12 + 4 + ENCRYPTION_RESERVED];  
+    let mut packet = match NetPacket::new_encrypt(vec) {  
+        Ok(p) => p,  
+        Err(e) => return Ok(Err(e.into())),  
+    };  
+    packet.set_protocol(Protocol::Control);  
+    packet.set_transport_protocol(control_packet::Protocol::Pong.into());  
+    if let Err(e) = packet.set_payload(net_packet.payload()) {  
+        return Ok(Err(e.into()));  
+    }  
+    let mut pong_packet = match control_packet::PongPacket::new(packet.payload_mut()) {  
+        Ok(p) => p,  
+        Err(e) => return Ok(Err(e.into())),  
+    };  
+    pong_packet.set_epoch(0);  
+      
+    // 关键:设置正确的源地址和目标地址  
+    packet.set_source(client_gateway.into());  
+    packet.set_destination(source);  
+    packet.set_default_version();  
+    packet.first_set_ttl(MAX_TTL);  
+    packet.set_gateway_flag(true);  
+      
+    println!("发送 Pong 包: 源={}, 目标={}, 加密={}",   
+        Ipv4Addr::from(client_gateway), source, packet.is_encrypt());  
+      
+    return Ok(Ok(Some(packet)));  
+}  
             }  
         }  
     }  
