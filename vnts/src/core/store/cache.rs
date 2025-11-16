@@ -138,6 +138,7 @@ impl AppCache {
             .map(|entry| entry.value().clone())  
             .collect();  
           
+        let count = configs.len(); 
         let store = WireGuardConfigStore { configs };  
         let content = serde_json::to_string_pretty(&store)?;  
         fs::write(config_path, content)?;  
