@@ -12,6 +12,7 @@ use std::net::Ipv4Addr;
 use std::path::PathBuf;
 
 use crate::cipher::RsaCipher;
+use crate::core::store::cache::load_or_generate_server_wg_keys;
 
 mod cipher;
 mod core;
@@ -265,22 +266,23 @@ async fn main() {
     if check_finger {
         println!("转发校验数据指纹，客户端必须增加--finger参数");
     }
-    let wg_secret_key: [u8; 32] = if let Some(wg_secret_key) = args.wg_secret_key {
-        let wg_secret_key = general_purpose::STANDARD
-            .decode(wg_secret_key)
-            .context("wg私钥错误")
-            .unwrap();
-        wg_secret_key
-            .try_into()
-            .map_err(|_| anyhow!("wg私钥错误"))
-            .unwrap()
-    } else {
-        let mut wg_secret_key = [0u8; 32];
-        rand::thread_rng().fill_bytes(&mut wg_secret_key);
-        wg_secret_key
+    let (wg_secret_key, wg_public_key) = if let Some(wg_secret_key_str) = args.wg_secret_key {  
+        // 如果命令行指定了密钥,使用命令行参数  
+        let wg_secret_key = general_purpose::STANDARD  
+            .decode(wg_secret_key_str)  
+            .context("wg私钥错误")  
+            .unwrap();  
+        let wg_secret_key: [u8; 32] = wg_secret_key  
+            .try_into()  
+            .map_err(|_| anyhow!("wg私钥错误"))  
+            .unwrap();  
+        let wg_secret_key = boringtun::x25519::StaticSecret::from(wg_secret_key);  
+        let wg_public_key = boringtun::x25519::PublicKey::from(&wg_secret_key);  
+        (wg_secret_key, wg_public_key)  
+    } else {  
+        // 否则从文件加载或生成新的密钥对  
+        load_or_generate_server_wg_keys()  
     };
-    let wg_secret_key = boringtun::x25519::StaticSecret::from(wg_secret_key);
-    let wg_public_key = boringtun::x25519::PublicKey::from(&wg_secret_key);
     let config = ConfigInfo {
         port,
         white_token,
