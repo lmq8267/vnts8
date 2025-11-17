@@ -386,8 +386,9 @@ impl VntsWebService {
     pub fn get_group_list(&self) -> Vec<String> {  
         self.cache  
             .virtual_network  
-            .iter()  
-            .map(|entry| entry.key().clone())  
-            .collect()  
+            .key_values()  
+            .into_iter()  
+            .map(|(key, _)| key)  
+            .collect() 
     }
 }
