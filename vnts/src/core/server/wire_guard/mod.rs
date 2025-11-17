@@ -474,7 +474,7 @@ impl WireGuard {
             dst_buf,  
         )  
         .await?;  
-        Ok(())  
+        Ok(())
     }
     async fn send_one(
         &self,
