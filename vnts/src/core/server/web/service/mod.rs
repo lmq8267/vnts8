@@ -147,22 +147,36 @@ impl VntsWebService {
                 let vnt_cli_ip = Ipv4Addr::from_str(&route_req.vnt_cli_ip)  
                     .context(format!("无效的vnt-cli虚拟IP: {}", route_req.vnt_cli_ip))?;  
               
-                // 验证 vnt-cli IP 是否在虚拟网络范围内  
-                if !network.contains(vnt_cli_ip) {  
-                    Err(anyhow!("vnt-cli虚拟IP {} 不在网络范围 {} 内", vnt_cli_ip, network))?;  
-                }  
+                // 只有当组网已存在时，才验证 vnt-cli IP 是否在该组网的网段内  
+                if let Some(network_info) = cache.virtual_network.get(&group_id) {  
+                    let guard = network_info.read();  
+                    let vnt_cli_ip_u32 = u32::from(vnt_cli_ip);  
               
+                    // 验证 IP 是否在组网网段内  
+                    if (vnt_cli_ip_u32 & guard.mask_ip) != guard.network_ip {  
+                        let group_network = Ipv4Addr::from(guard.network_ip);  
+                        let group_netmask = Ipv4Addr::from(guard.mask_ip);  
+                        Err(anyhow!(  
+                            "vnt-cli虚拟IP {} 不在当前组网的网段范围内 {}/{}",  
+                            vnt_cli_ip,  
+                            group_network,  
+                            group_netmask  
+                        ))?;  
+                    }  
+                }  
+                // 如果组网不存在（首次创建），则不进行网段验证，允许任意 IP  
+          
                 // 解析内网网段（CIDR格式）  
                 let lan_network_str = route_req.lan_network.trim();  
                 let _lan_network = Ipv4Network::from_str(lan_network_str)  
                     .context(format!("无效的内网网段格式: {}", lan_network_str))?;  
-              
+          
                 // 添加到路由配置  
                 routes.push(RouteConfig {  
                     vnt_cli_ip,  
                     lan_network: lan_network_str.to_string(),  
                 });  
-              
+          
                 // 添加到 AllowedIPs  
                 allowed_ips.push(lan_network_str.to_string());  
             }  
