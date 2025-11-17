@@ -217,39 +217,15 @@
         }
     }
     
-    /* 检查组网是否需要密码 */
-    function checkGroupPassword(groupId) {  
-        /* 调用后端API检查是否需要密码 */ 
-        postCheckGroupPassword({'group': groupId}, function (response) {  
-            if (response && response.code === 200) {  
-                if (response.data.require_password) {  
-                    /* 需要密码,显示密码输入框 */
-                    pendingGroupId = groupId;  
-                    $('#groupPassword').val('');  
-                    $('#passwordError').text('');  
-                    $('#passwordModal').show();  
-                } else {  
-                    /* 不需要密码,直接显示 */
-                    getGroupInfoFunc(groupId);  
-                }  
-            } else {  
-                alert('查找组网失败');  
-            }  
-        });  
-    }
-    
-    /* 存储待验证的组网ID */
-    let pendingGroupId = null;
     function searchInput(tempArr) {  
         $('#select_input').on('keypress', function (e) {  
             if (e.which === 13) { 
                 var inputVal = $(this).val().trim();  
                 if (inputVal) {   
                     $("input[name='groupId']").val(inputVal);  
-                    /* 不直接显示,先尝试验证密码 */
-                    checkGroupPassword(inputVal);  
+                    getGroupInfoFunc(inputVal);  
                 } else {  
-                    alert('组网token不存在');  
+                    alert('请输入组网token');  
                 }  
             }  
         });  
@@ -359,35 +335,6 @@ PersistentKeepalive = ${persistentKeepalive}`;
     }
 </script>
 <script>
-    /* 密码确认按钮点击事件 */
-    $('#confirmPasswordButton').on('click', function () {  
-        const password = $('#groupPassword').val().trim();  
-        if (!password) {  
-            $('#passwordError').text('密码不能为空');  
-            return;  
-        }  
-      
-        /* 验证密码 */
-        postVerifyGroupPassword({  
-            'group': pendingGroupId,  
-            'password': password  
-        }, function (response) {  
-            if (response && response.code === 200) {  
-                $('#passwordModal').hide();  
-                getGroupInfoFunc(pendingGroupId);  
-            } else {  
-                $('#passwordError').text('密码错误');  
-            }  
-        });  
-    });  
-  
-    /* 关闭密码模态窗口 */
-    $('.close').on('click', function () {  
-        $('#wgConfigModal').hide();  
-        $('#addModal').hide();  
-        $('#passwordModal').hide();  
-    });
-    
     let groupId;
     let deviceId = 'wg' + new Date().getTime();
     $('#addWireGuard').on('click', function () {
@@ -554,28 +501,28 @@ PersistentKeepalive = ${persistentKeepalive}`;
         graph.data(data);
         graph.render();
     }
-    let getGroupInfoFunc = function (group) {
-        groupId = group;
-        postGroupInfo({'group': group}, function (response) {
-            if (response && response.code === 200) {
-                let data = response.data;
-                $('.gateway_ip').html(data.gateway_ip);
-                $('.mask_ip').html(data.mask_ip);
-                $('.network_ip').html(data.network_ip);
-                nodeInitFunc(data.gateway_ip, data.clients);
-                displayDeviceInfo(group, data);
-                sessionStorage.setItem('currentGroupId', group); 
-            } else {
-                window.alert("调用服务失败")
-            }
-
-        })
+    let getGroupInfoFunc = function (group) {  
+        groupId = group;  
+        postGroupInfo({'group': group}, function (response) {  
+            if (response && response.code === 200 && response.data) {  
+                let data = response.data;  
+                $('.gateway_ip').html(data.gateway_ip);  
+                $('.mask_ip').html(data.mask_ip);  
+                $('.network_ip').html(data.network_ip);  
+                nodeInitFunc(data.gateway_ip, data.clients);  
+                displayDeviceInfo(group, data);  
+                sessionStorage.setItem('currentGroupId', group);   
+            } else {  
+                window.alert("组网token不存在或调用服务失败");  
+                sessionStorage.removeItem('currentGroupId');  
+            }  
+        })  
     }
     searchInput([]);
     const savedGroupId = sessionStorage.getItem('currentGroupId');  
     if (savedGroupId) {  
         $('#select_input').val(savedGroupId);  
-        checkGroupPassword(savedGroupId);  
+        getGroupInfoFunc(savedGroupId);  
     }
     $('.close').on('click', function () {
         $('#wgConfigModal').hide();
