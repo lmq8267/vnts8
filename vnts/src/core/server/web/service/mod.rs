@@ -151,8 +151,8 @@ impl VntsWebService {
                 if let Some(network_info) = cache.virtual_network.get(&group_id) {  
                     let guard = network_info.read();  
                     let vnt_cli_ip_u32 = u32::from(vnt_cli_ip);  
-              
-                    // 验证 IP 是否在组网网段内  
+                  
+                    // 使用组网实际的网段信息进行验证  
                     if (vnt_cli_ip_u32 & guard.mask_ip) != guard.network_ip {  
                         let group_network = Ipv4Addr::from(guard.network_ip);  
                         let group_netmask = Ipv4Addr::from(guard.mask_ip);  
@@ -164,23 +164,23 @@ impl VntsWebService {
                         ))?;  
                     }  
                 }  
-                // 如果组网不存在（首次创建），则不进行网段验证，允许任意 IP  
-          
+                // 如果组网不存在（首次创建WireGuard客户端），则不进行网段验证  
+              
                 // 解析内网网段（CIDR格式）  
                 let lan_network_str = route_req.lan_network.trim();  
                 let _lan_network = Ipv4Network::from_str(lan_network_str)  
                     .context(format!("无效的内网网段格式: {}", lan_network_str))?;  
-          
+              
                 // 添加到路由配置  
                 routes.push(RouteConfig {  
                     vnt_cli_ip,  
                     lan_network: lan_network_str.to_string(),  
                 });  
-          
+              
                 // 添加到 AllowedIPs  
                 allowed_ips.push(lan_network_str.to_string());  
             }  
-        }  
+        } 
       
         let vnts_allowed_ips = allowed_ips.join(", "); 
         
@@ -202,6 +202,22 @@ impl VntsWebService {
             wireguard: Some(public_key),
         };
         let response = generate_ip(cache, register_client_request).await?;
+        // 如果这是该组网的第一个客户端，根据分配的 IP 更新网段信息  
+        if let Some(network_info) = cache.virtual_network.get(&group_id) {  
+            let mut guard = network_info.write();  
+            if guard.clients.len() == 1 {  
+                // 这是第一个客户端，根据分配的 IP 更新网段  
+                let actual_network = u32::from(response.virtual_ip) & u32::from(netmask);  
+                guard.network_ip = actual_network;  
+                log::info!(  
+                    "更新组网 {} 的网段信息: network={}, mask={}, gateway={}",  
+                    group_id,  
+                    Ipv4Addr::from(actual_network),  
+                    netmask,  
+                    gateway  
+                );  
+            }  
+        }  
         let wireguard_config = WireGuardConfig {
             vnts_endpoint: wg_data.config.vnts_endpoint.clone(),
             vnts_allowed_ips: network.to_string(),
