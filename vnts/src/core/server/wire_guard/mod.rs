@@ -78,7 +78,8 @@ impl WireGuardGroup {
             if client_info.wireguard.is_none() {
                 Err(anyhow!("不是wg配置"))?;
             }
-            let (network_sender, network_receiver) = channel(64);
+            // 当日志出现 发送到对端wg失败 时修改下方 512 更大的值，目前已由 64 改到 512了 越大wg客户端越多占用内存越大
+            let (network_sender, network_receiver) = channel(512);
             client_info.wg_sender = Some(network_sender);
             client_info.last_join_time = Local::now();
             client_info.timestamp = client_info.last_join_time.timestamp();
