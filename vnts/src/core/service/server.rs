@@ -685,10 +685,23 @@ pub async fn generate_ip(
             )
         })
         .await;
-    // 可分配的ip段
-    let ip_range = network + 1..gateway | (!netmask);
     let timestamp = Local::now().timestamp();
     let mut lock = v.write();
+    // 如果这是第一个客户端，根据指定的 IP 更新网段信息  
+    if lock.clients.is_empty() && virtual_ip != 0 {  
+        let actual_network = virtual_ip & netmask;  
+        lock.network_ip = actual_network;  
+        log::info!(  
+            "更新组网 {} 的网段信息: network={}, mask={}, gateway={}",  
+            group_id,  
+            Ipv4Addr::from(actual_network),  
+            Ipv4Addr::from(netmask),  
+            Ipv4Addr::from(gateway)  
+        );  
+    }
+    // 使用组网实际的网段计算 IP 分配范围  
+    let actual_network = lock.network_ip;  
+    let ip_range = actual_network + 1..gateway | (!netmask); 
     let mut insert = true;
     if virtual_ip != 0 {
         if gateway == virtual_ip {
@@ -738,18 +751,6 @@ pub async fn generate_ip(
     if virtual_ip == 0 {
         log::error!("地址使用完:{:?}", lock);
         Err(Error::AddressExhausted)?
-    }
-    // 如果这是第一个客户端，根据分配的 IP 更新网段信息  
-    if lock.clients.is_empty() {  
-        let actual_network = virtual_ip & netmask;  
-        lock.network_ip = actual_network;  
-        log::info!(  
-            "更新组网 {} 的网段信息: network={}, mask={}, gateway={}",  
-            group_id,  
-            Ipv4Addr::from(actual_network),  
-            Ipv4Addr::from(netmask),  
-            Ipv4Addr::from(gateway)  
-        );  
     }
     let info = if old_ip == 0 {
         lock.clients
