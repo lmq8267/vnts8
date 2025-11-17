@@ -676,7 +676,7 @@ pub async fn generate_ip(
     let group_id = register_request.group_id;
     let v = cache
         .virtual_network
-        .optionally_get_with(group_id, || {
+        .optionally_get_with(group_id.clone(), || {
             (
                 Duration::from_secs(7 * 24 * 3600),
                 Arc::new(parking_lot::const_rwlock(NetworkInfo::new(
