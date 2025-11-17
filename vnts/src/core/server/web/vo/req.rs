@@ -27,14 +27,3 @@ pub struct RemoveClientReq {
     pub group_id: String,
     pub virtual_ip: Option<Ipv4Addr>,
 }
-
-#[derive(Debug, Serialize, Deserialize)]  
-pub struct GroupPasswordReq {  
-    pub group: String,  
-}  
-  
-#[derive(Debug, Serialize, Deserialize)]  
-pub struct VerifyPasswordReq {  
-    pub group: String,  
-    pub password: String,  
-}
