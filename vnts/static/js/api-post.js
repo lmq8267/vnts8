@@ -82,3 +82,7 @@ function postCreateWG(requestData, success, error) {
 function postRemoveClient(requestData, success, error) {
     post("api/remove_client", requestData, success, error)
 }
+
+function postGroupList(requestData, success, error) {  
+    post("api/group_list", requestData, success, error)  
+}
