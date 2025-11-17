@@ -4,7 +4,13 @@ use std::net::{Ipv4Addr, SocketAddr};
 
 use chrono::{DateTime, Local};
 use tokio::sync::mpsc::Sender;
-  
+
+#[derive(Clone, Debug, Serialize, Deserialize)]  
+pub struct RouteConfig {  
+    pub vnt_cli_ip: Ipv4Addr,      // vnt-cli的虚拟IP（网关）  
+    pub lan_network: String,        // 内网网段 (CIDR格式，如 "192.168.1.0/24")  
+} 
+
 #[derive(Clone, Debug, Serialize, Deserialize)]  
 pub struct WireGuardConfig {  
     pub vnts_endpoint: String,  
@@ -18,6 +24,8 @@ pub struct WireGuardConfig {
     pub secret_key: [u8; 32],  
     #[serde(with = "serde_bytes")]  
     pub public_key: [u8; 32],  
+    #[serde(default)]  
+    pub routes: Vec<RouteConfig>, 
 }
 /// 网段信息
 #[derive(Default, Debug)]
@@ -34,8 +42,8 @@ pub struct NetworkInfo {
     pub epoch: u64,
     // 网段下的客户端列表 ip->ClientInfo
     pub clients: HashMap<u32, ClientInfo>,
-    // 组网密码
-    pub password: Option<String>, 
+    // 路由表 (目标网段, 子网掩码, 网关虚拟IP)  
+    pub route_table: HashMap<[u8; 32], Vec<(u32, u32, Ipv4Addr)>>,
 }
 
 impl NetworkInfo {
