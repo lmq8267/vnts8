@@ -57,6 +57,11 @@ impl ClientPacketHandler {
         context: &LinkVntContext,
         mut net_packet: NetPacket<B>,
     ) -> Result<()> {
+        // 新增: 检查是否禁止中继转发  
+        if self.config.disable_relay {  
+            log::debug!("中继转发已禁用，丢弃数据包");  
+            return Ok(());  
+        }
         if net_packet.incr_ttl() > 1 {
             if self.config.check_finger {
                 let finger = crate::cipher::Finger::new(&context.group);
